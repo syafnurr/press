@@ -164,3 +164,4 @@ press/public/css/marketplace-next.css
 # IDE
 .idea
 .vscode
+press/api/email.py
