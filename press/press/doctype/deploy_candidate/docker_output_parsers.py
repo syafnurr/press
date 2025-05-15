@@ -158,12 +158,56 @@ class DockerBuildOutputParser:
 			_, _, output = line.partition(" ")
 			step.output += output + "\n"
 
+	# def _add_step_to_steps_dict(self, split: "IndexSplit"):
+	# 	line = split["line"]
+	# 	if not line.startswith("[stage-"):
+	# 		return
+
+	# 	name = line.split("]", maxsplit=1)[1].strip()
+	# 	if not name.startswith("RUN"):
+	# 		return
+
+	# 	if not (match := re.search("`#stage-(.*)`", name)):
+	# 		return
+
+	# 	stage_slug, step_slug = match.group(1).split("-", maxsplit=1)
+	# 	step = self.steps_by_step_slug.get((stage_slug, step_slug))
+	# 	if not step:
+	# 		return
+
+	# 	index = split["index"]
+	# 	step.step_index = index
+	# 	step.command = get_command(name)
+	# 	step.status = "Running"
+	# 	step.output = ""
+
+	# 	self.steps[index] = step
+
+	def get_command(name: str) -> str:
+		# Menghapus metadata stage (seperti `#stage-*`)
+		command = name.split("`#stage-", maxsplit=1)[0]
+
+		# Ambil hanya command RUN setelah memastikan dimulai dengan "RUN"
+		if command.strip().startswith("RUN"):
+			command = command.strip()[3:].strip()  # Menghapus 'RUN' pada awal perintah
+
+		# Menghapus karakter fold line jika ada (multi-line command)
+		splits = [p.strip() for p in command.split(" \\\n")]
+
+		# Bersihkan whitespace internal yang berlebihan
+		for i in range(len(splits)):
+			s = splits[i]
+			splits[i] = " ".join([p.strip() for p in s.split() if len(p)])
+
+		# Gabungkan kembali dan kembalikan command yang telah dibersihkan
+		return "\n".join([p for p in splits if len(p)])
+
 	def _add_step_to_steps_dict(self, split: "IndexSplit"):
 		line = split["line"]
 		if not line.startswith("[stage-"):
 			return
 
-		name = line.split("]", maxsplit=1)[1].strip()
+		name = line.split("]", maxsplit=1)[1].strip()  # Ambil nama stage
 		if not name.startswith("RUN"):
 			return
 
@@ -177,11 +221,15 @@ class DockerBuildOutputParser:
 
 		index = split["index"]
 		step.step_index = index
-		step.command = get_command(name)
+
+		# Gunakan get_command untuk mendapatkan perintah dari line
+		step.command = self.get_command(name)
+
 		step.status = "Running"
 		step.output = ""
 
 		self.steps[index] = step
+
 
 	def _get_step_index_split(self, line: str) -> "IndexSplit | None":
 		splits = line.split(maxsplit=1)
